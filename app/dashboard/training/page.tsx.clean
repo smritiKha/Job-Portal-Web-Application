@@ -1,0 +1,849 @@
+'use client'
+
+import { useEffect, useState, useCallback } from "react"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/lib/auth-context"
+import { 
+  Loader2, 
+  AlertCircle,
+  RefreshCw,
+  Code,
+  TrendingUp,
+  BookOpen,
+  Plus,
+  ExternalLink,
+  PlayCircle,
+  CheckCircle2,
+  Clock,
+  ChevronDown,
+  ChevronUp,
+  Star,
+  BookOpen as BookOpenIcon,
+  Video as VideoIcon,
+  X
+} from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Progress } from "@/components/ui/progress"
+import { Badge } from "@/components/ui/badge"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+
+// Interfaces
+interface SkillGap {
+  skill: string;
+  currentLevel: number;
+  targetLevel: number;
+  importance: string;
+  demand: string;
+  avgSalaryIncrease?: string;
+}
+
+interface TrainingRecommendation {
+  id: string;
+  title: string;
+  provider: string;
+  duration: string;
+  level: 'Beginner' | 'Intermediate' | 'Advanced';
+  rating: number;
+  url: string;
+  targetSkills?: string[];
+  relevance?: string;
+  cost?: string;
+}
+
+interface RoadmapStep {
+  id: string;
+  title: string;
+  description: string;
+  duration: string;
+  status: 'completed' | 'in-progress' | 'pending';
+  order: number;
+  resources?: Array<{
+    id: string;
+    title: string;
+    type: 'course' | 'article' | 'video' | 'project' | 'certification';
+    url: string;
+    duration?: string;
+  }>;
+}
+
+interface DreamJob {
+  id: string;
+  title: string;
+  description: string;
+  requiredSkills: string[];
+  averageSalary: string;
+  growthRate: string;
+}
+
+interface TrainingData {
+  skillGaps: SkillGap[];
+  recommendations: TrainingRecommendation[];
+  roadmap: RoadmapStep[];
+  dreamJob?: DreamJob;
+}
+
+interface Video {
+  videoId: string;
+  title: string;
+  channelTitle: string;
+  thumbnail: string;
+}
+
+// Available dream jobs
+const DREAM_JOBS: DreamJob[] = [
+  {
+    id: 'frontend-dev',
+    title: 'Senior Frontend Developer',
+    description: 'Build modern, responsive web applications using React, TypeScript, and modern CSS',
+    requiredSkills: ['React', 'TypeScript', 'JavaScript', 'CSS', 'HTML', 'Redux', 'Next.js'],
+    averageSalary: '$120,000',
+    growthRate: '15% (Much faster than average)'
+  },
+  {
+    id: 'backend-dev',
+    title: 'Backend Developer',
+    description: 'Develop scalable server-side applications and APIs',
+    requiredSkills: ['Node.js', 'Python', 'Java', 'SQL', 'REST APIs', 'Docker', 'AWS'],
+    averageSalary: '$125,000',
+    growthRate: '13% (Much faster than average)'
+  },
+  {
+    id: 'fullstack-dev',
+    title: 'Full Stack Developer',
+    description: 'Work on both frontend and backend development',
+    requiredSkills: ['React', 'Node.js', 'Express', 'MongoDB', 'REST APIs', 'Docker'],
+    averageSalary: '$130,000',
+    growthRate: '17% (Much faster than average)'
+  },
+  {
+    id: 'devops-engineer',
+    title: 'DevOps Engineer',
+    description: 'Implement CI/CD pipelines and cloud infrastructure',
+    requiredSkills: ['Docker', 'Kubernetes', 'AWS', 'CI/CD', 'Terraform', 'Linux'],
+    averageSalary: '$140,000',
+    growthRate: '20% (Much faster than average)'
+  }
+];
+
+// Mock training data generator based on selected job
+const generateTrainingData = (jobId: string): TrainingData => {
+  const job = DREAM_JOBS.find(job => job.id === jobId) || DREAM_JOBS[0];
+  
+  // Generate skill gaps based on job requirements
+  const skillGaps: SkillGap[] = job.requiredSkills.map((skill, index) => ({
+    skill,
+    currentLevel: Math.floor(Math.random() * 3) + 1, // 1-3
+    targetLevel: 4 + Math.floor(Math.random() * 2), // 4-5
+    importance: ['High', 'Medium', 'High', 'Critical'][index % 4],
+    demand: ['High', 'Medium', 'High', 'Very High'][index % 4],
+    avgSalaryIncrease: `${10 + (index * 2)}%`
+  }));
+
+  // Generate recommendations based on skill gaps
+  const recommendations: TrainingRecommendation[] = [
+    {
+      id: `rec-${jobId}-1`,
+      title: `Complete ${job.title} Path`,
+      provider: 'LinkedIn Learning',
+      duration: '40 hours',
+      level: 'Intermediate',
+      rating: 4.7,
+      url: 'https://www.linkedin.com/learning/paths/become-a-full-stack-developer',
+      targetSkills: job.requiredSkills.slice(0, 3),
+      relevance: 'High',
+      cost: 'Premium'
+    },
+    {
+      id: `rec-${jobId}-2`,
+      title: `${job.requiredSkills[0]} Masterclass`,
+      provider: 'Udemy',
+      duration: '30 hours',
+      level: 'Advanced',
+      rating: 4.6,
+      url: 'https://www.udemy.com/course/react-the-complete-guide-incl-redux/',
+      targetSkills: [job.requiredSkills[0]],
+      relevance: 'High',
+      cost: '$12.99'
+    },
+    {
+      id: `rec-${jobId}-3`,
+      title: 'System Design Interview Preparation',
+      provider: 'Educative',
+      duration: '20 hours',
+      level: 'Advanced',
+      rating: 4.8,
+      url: 'https://www.educative.io/courses/grokking-the-system-design-interview',
+      targetSkills: ['System Design', 'Scalability', 'Databases'],
+      relevance: 'Medium',
+      cost: 'Premium'
+    }
+  ];
+
+  // Generate learning path
+  const roadmap: RoadmapStep[] = [
+    {
+      id: 'fundamentals',
+      title: 'Master the Fundamentals',
+      description: 'Build a strong foundation in core concepts',
+      duration: '4 weeks',
+      status: 'pending',
+      order: 1,
+      resources: [
+        {
+          id: 'fund-1',
+          title: 'Computer Science Fundamentals',
+          type: 'course',
+          url: 'https://www.coursera.org/specializations/cs-fundamentals',
+          duration: '4 weeks'
+        }
+      ]
+    },
+    {
+      id: 'core-skills',
+      title: `Learn ${job.requiredSkills[0]} & ${job.requiredSkills[1]}`,
+      description: `Master the core technologies for ${job.title} role`,
+      duration: '8 weeks',
+      status: 'pending',
+      order: 2
+    },
+    {
+      id: 'projects',
+      title: 'Build Real Projects',
+      description: 'Apply your skills to real-world projects',
+      duration: '6 weeks',
+      status: 'pending',
+      order: 3
+    },
+    {
+      id: 'interview',
+      title: 'Interview Preparation',
+      description: 'Practice coding challenges and system design',
+      duration: '4 weeks',
+      status: 'pending',
+      order: 4
+    }
+  ];
+
+  return {
+    skillGaps,
+    recommendations,
+    roadmap,
+    dreamJob: job
+  };
+};
+
+// Mock data for development
+const mockTrainingData: TrainingData = generateTrainingData('frontend-dev');
+
+// Job selection component
+const JobSelector = ({ jobs, selectedJob, onSelectJob, onClose }: {
+  jobs: DreamJob[];
+  selectedJob: DreamJob | null;
+  onSelectJob: (job: DreamJob) => void;
+  onClose: () => void;
+}) => (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-xl font-bold">Select Your Dream Job</h2>
+        <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+          <X className="h-5 w-5" />
+        </button>
+      </div>
+      <div className="space-y-4">
+        {jobs.map((job) => (
+          <div 
+            key={job.id}
+            onClick={() => onSelectJob(job)}
+            className={`p-4 border rounded-lg cursor-pointer transition-colors ${
+              selectedJob?.id === job.id 
+                ? 'border-blue-500 bg-blue-50' 
+                : 'border-gray-200 hover:border-blue-300'
+            }`}
+          >
+            <h3 className="font-medium">{job.title}</h3>
+            <p className="text-sm text-gray-600 mt-1">{job.description}</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {job.requiredSkills.slice(0, 3).map(skill => (
+                <span key={skill} className="text-xs bg-gray-100 px-2 py-1 rounded">
+                  {skill}
+                </span>
+              ))}
+              {job.requiredSkills.length > 3 && (
+                <span className="text-xs text-gray-500">+{job.requiredSkills.length - 3} more</span>
+              )}
+            </div>
+            <div className="mt-3 flex justify-between text-sm">
+              <span className="text-green-600">{job.averageSalary}/year</span>
+              <span className="text-blue-600">{job.growthRate}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+);
+
+// Components
+const RoadmapStep = ({ step, isLast = false, onStartStep }: { 
+  step: RoadmapStep; 
+  isLast?: boolean; 
+  onStartStep?: (stepId: string) => void;
+}) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  
+  const statusStyles = {
+    completed: {
+      bg: 'bg-green-100',
+      text: 'text-green-800',
+      icon: <CheckCircle2 className="h-5 w-5 text-green-500" />,
+      label: 'Completed'
+    },
+    'in-progress': {
+      bg: 'bg-blue-50',
+      text: 'text-blue-800',
+      icon: <Loader2 className="h-5 w-5 animate-spin text-blue-500" />,
+      label: 'In Progress'
+    },
+    pending: {
+      bg: 'bg-gray-50',
+      text: 'text-gray-600',
+      icon: <Clock className="h-5 w-5 text-gray-400" />,
+      label: 'Pending'
+    }
+  };
+
+  const status = statusStyles[step.status];
+
+  return (
+    <div className={`relative pl-6 pb-6 ${!isLast ? 'border-l-2 border-gray-200' : ''}`}>
+      <div className="absolute -left-2.5 top-0 h-5 w-5 rounded-full bg-white border-2 border-blue-500 flex items-center justify-center">
+        <div className="h-2.5 w-2.5 rounded-full bg-blue-500"></div>
+      </div>
+      <div className={`p-4 rounded-lg ${status.bg} border ${status.text} border-opacity-20`}>
+        <div className="flex justify-between items-start">
+          <div className="flex-1">
+            <h3 className="font-medium">{step.title}</h3>
+            <p className="text-sm mt-1">{step.description}</p>
+            {step.resources && step.resources.length > 0 && (
+              <div className="mt-3 space-y-2">
+                <button 
+                  onClick={() => setIsExpanded(!isExpanded)}
+                  className="flex items-center text-sm hover:text-blue-600 transition-colors"
+                >
+                  <BookOpenIcon className="h-4 w-4 mr-2" />
+                  <span>Resources ({step.resources.length})</span>
+                  <ChevronDown className={`ml-1 h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                </button>
+                {isExpanded && (
+                  <div className="ml-6 space-y-2 mt-2">
+                    {step.resources.map((resource) => (
+                      <a
+                        key={resource.id}
+                        href={resource.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center text-sm text-blue-600 hover:underline"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                        {resource.title}
+                        {resource.duration && (
+                          <span className="ml-2 text-xs text-gray-500">
+                            {resource.duration}
+                          </span>
+                        )}
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          <div className="flex items-center space-x-2 ml-4">
+            <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${status.bg} ${status.text}`}>
+              {status.label}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onStartStep?.(step.id)}
+              className="whitespace-nowrap"
+            >
+              {step.status === 'completed' ? 'Review' : step.status === 'in-progress' ? 'Continue' : 'Start'}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const TrainingRecommendationItem = ({ recommendation }: { recommendation: TrainingRecommendation }) => {
+  return (
+    <Card className="h-full flex flex-col">
+      <CardHeader className="pb-3">
+        <div className="flex justify-between items-start">
+          <div>
+            <CardTitle className="text-lg">{recommendation.title}</CardTitle>
+            <p className="text-sm text-muted-foreground">{recommendation.provider}</p>
+          </div>
+          <Badge variant="outline" className="capitalize">
+            {recommendation.level}
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="flex-1">
+        <div className="flex items-center text-sm text-muted-foreground mb-4">
+          <span className="flex items-center">
+            <Star className="h-4 w-4 fill-yellow-400 text-yellow-400 mr-1" />
+            {recommendation.rating.toFixed(1)}
+          </span>
+          <span className="mx-2">•</span>
+          <span>{recommendation.duration}</span>
+        </div>
+        <Button variant="outline" className="w-full" asChild>
+          <a href={recommendation.url} target="_blank" rel="noopener noreferrer">
+            View Course
+          </a>
+        </Button>
+      </CardContent>
+    </Card>
+  );
+};
+
+const SkillGapItem = ({ gap }: { gap: SkillGap }) => {
+  const progress = Math.round((gap.currentLevel / gap.targetLevel) * 100);
+  
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex justify-between items-start">
+          <CardTitle className="text-lg">{gap.skill}</CardTitle>
+          <Badge variant={gap.importance === 'High' ? 'destructive' : 'secondary'}>
+            {gap.importance} Priority
+          </Badge>
+        </div>
+        <div className="flex items-center text-sm text-muted-foreground">
+          <span>Current: {gap.currentLevel}/5</span>
+          <span className="mx-2">→</span>
+          <span>Target: {gap.targetLevel}/5</span>
+          {gap.avgSalaryIncrease && (
+            <span className="ml-2 text-green-600">+{gap.avgSalaryIncrease} salary potential</span>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-2">
+          <div className="flex justify-between text-sm">
+            <span>Progress</span>
+            <span>{progress}%</span>
+          </div>
+          <Progress value={progress} className="h-2" />
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>Beginner</span>
+            <span>Expert</span>
+          </div>
+        </div>
+        <div className="mt-4 flex space-x-2">
+          <Button variant="outline" size="sm" asChild>
+            <a 
+              href={`https://www.w3schools.com/${gap.skill.toLowerCase()}/`} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="flex items-center"
+            >
+              <BookOpen className="h-4 w-4 mr-2" />
+              Find Courses
+            </a>
+          </Button>
+          <Button variant="outline" size="sm" asChild>
+            <a 
+              href={`https://www.w3schools.com/${gap.skill.toLowerCase()}/exercises/`} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="flex items-center"
+            >
+              <Code className="h-4 w-4 mr-2" />
+              Practice Exercises
+            </a>
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+export default function TrainingPage() {
+  const router = useRouter();
+  const { user, isLoading } = useAuth();
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [trainingData, setTrainingData] = useState<TrainingData | null>(null);
+  const [isVideoOpen, setIsVideoOpen] = useState(false);
+  const [videos, setVideos] = useState<Video[]>([]);
+  const [showJobSelector, setShowJobSelector] = useState(false);
+  const [selectedJob, setSelectedJob] = useState<DreamJob | null>(DREAM_JOBS[0]);
+
+  // Fetch training data based on selected job
+  useEffect(() => {
+    const fetchTrainingData = async () => {
+      if (!selectedJob) return;
+      
+      try {
+        setIsLoadingData(true);
+        // TODO: Replace with actual API call
+        // const response = await fetch(`/api/training?jobId=${selectedJob.id}`);
+        // const data = await response.json();
+        
+        // Using mock data generator
+        setTimeout(() => {
+          const data = generateTrainingData(selectedJob.id);
+          setTrainingData(data);
+          setIsLoadingData(false);
+        }, 500);
+      } catch (error) {
+        console.error('Error fetching training data:', error);
+        setIsLoadingData(false);
+      }
+    };
+
+    fetchTrainingData();
+  }, [selectedJob]);
+  
+  const handleJobSelect = (job: DreamJob) => {
+    setSelectedJob(job);
+    setShowJobSelector(false);
+  };
+
+  const handleRefresh = useCallback(async () => {
+    try {
+      setIsLoadingData(true);
+      // TODO: Replace with actual API call
+      // const response = await fetch('/api/training/refresh');
+      // const data = await response.json();
+      // setTrainingData(data);
+      
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      if (selectedJob) {
+        const data = generateTrainingData(selectedJob.id);
+        setTrainingData(data);
+      }
+    } catch (error) {
+      console.error('Error refreshing training data:', error);
+    } finally {
+      setIsLoadingData(false);
+    }
+  }, [selectedJob]);
+
+  const getVideoRecommendations = async (jobTitle: string): Promise<Video[]> => {
+    // TODO: Replace with actual API call
+    return [
+      {
+        videoId: 'pKd0RuQCjMs',
+        title: 'Learn React in 5 Hours',
+        channelTitle: 'freeCodeCamp',
+        thumbnail: 'https://i.ytimg.com/vi/pKd0RuQCjMs/maxresdefault.jpg'
+      },
+      {
+        videoId: '1Rs2ND1ryYc',
+        title: 'CSS Crash Course For Absolute Beginners',
+        channelTitle: 'Traversy Media',
+        thumbnail: 'https://i.ytimg.com/vi/1Rs2ND1ryYc/maxresdefault.jpg'
+      },
+      {
+        videoId: 'hQAHSlTtcmY',
+        title: 'JavaScript Crash Course',
+        channelTitle: 'Web Dev Simplified',
+        thumbnail: 'https://i.ytimg.com/vi/hQAHSlTtcmY/maxresdefault.jpg'
+      }
+    ];
+  };
+
+  const handleShowVideos = async (jobTitle: string) => {
+    try {
+      setIsVideoOpen(true);
+      const videos = await getVideoRecommendations(jobTitle);
+      setVideos(videos);
+    } catch (error) {
+      console.error('Error fetching video recommendations:', error);
+    }
+  };
+
+  // Show loading state
+  if (isLoading || !user || !["job_seeker", "admin"].includes(user.role)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-12 w-12 animate-spin text-blue-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold">Loading your training dashboard...</h2>
+          <p className="text-muted-foreground mt-2">Please wait while we prepare your personalized learning path.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto p-6 space-y-8">
+      {showJobSelector && selectedJob && (
+        <JobSelector 
+          jobs={DREAM_JOBS} 
+          selectedJob={selectedJob} 
+          onSelectJob={handleJobSelect}
+          onClose={() => setShowJobSelector(false)}
+        />
+      )}
+      
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Training & Development</h1>
+          {selectedJob && (
+            <div className="mt-2">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowJobSelector(true)}
+                className="text-left"
+              >
+                <div className="text-left">
+                  <p className="font-medium">Target Role: {selectedJob.title}</p>
+                  <p className="text-xs text-muted-foreground font-normal">
+                    {selectedJob.requiredSkills.slice(0, 3).join(' • ')}
+                    {selectedJob.requiredSkills.length > 3 ? ' • ...' : ''}
+                  </p>
+                </div>
+                <ChevronDown className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
+          )}
+        </div>
+        <Button 
+          onClick={handleRefresh} 
+          disabled={isLoadingData}
+          variant="outline"
+          className="flex items-center gap-2"
+        >
+          <RefreshCw className={`h-4 w-4 ${isLoadingData ? 'animate-spin' : ''}`} />
+          {isLoadingData ? 'Refreshing...' : 'Refresh'}
+        </Button>
+      </div>
+      
+      {isLoadingData ? (
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-500 mr-2" />
+          <span>Loading your training data...</span>
+        </div>
+      ) : !trainingData ? (
+        <div className="text-center py-12">
+          <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No training data available</h3>
+          <p className="text-gray-500 mb-6">We couldn't generate a training plan. Please try refreshing the page.</p>
+          <Button 
+            onClick={handleRefresh} 
+            disabled={isLoadingData}
+            className="flex items-center gap-2 mx-auto"
+          >
+            <RefreshCw className={`h-4 w-4 ${isLoadingData ? 'animate-spin' : ''}`} />
+            {isLoadingData ? 'Loading...' : 'Refresh Data'}
+          </Button>
+        </div>
+      ) : (
+        <Tabs defaultValue="overview" className="w-full">
+          <TabsList className="grid w-full grid-cols-4 mb-6">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="skills">Skill Gaps</TabsTrigger>
+            <TabsTrigger value="resources">Resources</TabsTrigger>
+            <TabsTrigger value="learning-path">Learning Path</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview" className="space-y-6">
+            <div className="grid gap-6 md:grid-cols-3">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Skills</CardTitle>
+                  <Code className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{trainingData.skillGaps.length}</div>
+                  <p className="text-xs text-muted-foreground">Skills to improve</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Average Progress</CardTitle>
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {Math.round(
+                      trainingData.skillGaps.reduce(
+                        (sum, gap) => sum + (gap.currentLevel / gap.targetLevel) * 100, 
+                        0
+                      ) / trainingData.skillGaps.length
+                    )}%
+                  </div>
+                  <p className="text-xs text-muted-foreground">Across all skills</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Recommended Resources</CardTitle>
+                  <BookOpen className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{trainingData.recommendations.length}</div>
+                  <p className="text-xs text-muted-foreground">Courses & tutorials</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Skill Progress</CardTitle>
+                <CardDescription>
+                  Track your progress across different skill categories
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {trainingData.skillGaps.map((gap) => {
+                    const progress = Math.round((gap.currentLevel / gap.targetLevel) * 100);
+                    return (
+                      <div key={gap.skill} className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium">{gap.skill}</span>
+                          <span className="text-sm text-muted-foreground">
+                            {progress}%
+                          </span>
+                        </div>
+                        <Progress value={progress} className="h-2" />
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="skills" className="space-y-6">
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <h2 className="text-lg font-medium">Your Skill Gaps</h2>
+                <Button variant="outline" size="sm">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Custom Skill
+                </Button>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {trainingData.skillGaps.map((gap) => (
+                  <SkillGapItem key={gap.skill} gap={gap} />
+                ))}
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="resources" className="space-y-6">
+            <div className="space-y-4">
+              <h2 className="text-lg font-medium">Recommended Learning Resources</h2>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {trainingData.recommendations.map((rec) => (
+                  <TrainingRecommendationItem key={rec.id} recommendation={rec} />
+                ))}
+              </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="learning-path" className="space-y-6">
+            <div className="space-y-8">
+              <div>
+                <h2 className="text-lg font-medium mb-2">Your Learning Path</h2>
+                <p className="text-sm text-muted-foreground">
+                  Follow this step-by-step guide to improve your skills systematically
+                </p>
+              </div>
+              
+              <div className="relative">
+                {trainingData.roadmap.map((step, index) => (
+                  <RoadmapStep
+                    key={step.id}
+                    step={step}
+                    isLast={index === trainingData.roadmap.length - 1}
+                    index={index}
+                    onStartStep={handleShowVideos}
+                  />
+                ))}
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
+      )}
+
+      {/* Video Modal */}
+      <Dialog open={isVideoOpen} onOpenChange={setIsVideoOpen}>
+        <DialogContent className="sm:max-w-[800px]">
+          <DialogHeader>
+            <DialogTitle>Video Tutorials</DialogTitle>
+            <DialogDescription>
+              Watch tutorials to improve your skills
+            </DialogDescription>
+          </DialogHeader>
+          
+          {videos.length > 0 ? (
+            <div className="space-y-4">
+              <div className="aspect-video bg-black rounded-lg overflow-hidden">
+                <iframe
+                  width="100%"
+                  height="100%"
+                  src={`https://www.youtube.com/embed/${videos[0].videoId}`}
+                  title={videos[0].title}
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="w-full h-full"
+                />
+              </div>
+              <div>
+                <h3 className="text-lg font-medium">{videos[0].title}</h3>
+                <p className="text-sm text-muted-foreground">{videos[0].channelTitle}</p>
+              </div>
+              
+              {videos.length > 1 && (
+                <div className="mt-6">
+                  <h4 className="text-sm font-medium mb-3">More videos you might like:</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {videos.slice(1).map((video) => (
+                      <button
+                        key={video.videoId}
+                        onClick={() => setVideos([video, ...videos.filter(v => v.videoId !== video.videoId)])}
+                        className="text-left group"
+                      >
+                        <div className="relative aspect-video rounded-md overflow-hidden mb-2 bg-muted">
+                          <img
+                            src={video.thumbnail}
+                            alt={video.title}
+                            className="w-full h-full object-cover group-hover:opacity-80 transition-opacity"
+                          />
+                          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <PlayCircle className="h-10 w-10 text-white" />
+                          </div>
+                        </div>
+                        <h5 className="text-sm font-medium line-clamp-2">{video.title}</h5>
+                        <p className="text-xs text-muted-foreground">{video.channelTitle}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <VideoIcon className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+              <h3 className="text-lg font-medium mb-1">No videos available</h3>
+              <p className="text-sm text-muted-foreground">We couldn't find any video recommendations for this skill.</p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

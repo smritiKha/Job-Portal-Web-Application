@@ -1,0 +1,22 @@
+# Ignore node modules and build output
+node_modules
+.next
+out
+build
+
+# VCS
+.git
+.gitignore
+
+# Env files
+.env*
+
+# Logs and caches
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.next/cache
+
+# OS
+.DS_Store

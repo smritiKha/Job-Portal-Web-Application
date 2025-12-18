@@ -1,0 +1,65 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Light theme tokens */
+@theme inline {
+  --color-background: oklch(1 0 0); /* white */
+  --color-foreground: oklch(0.27 0.03 255); /* slate-ish */
+
+  --color-muted: oklch(0.97 0.01 255);
+  --color-muted-foreground: oklch(0.55 0.04 255);
+
+  --color-card: oklch(0.98 0 0);
+  --color-card-foreground: oklch(0.27 0.03 255);
+
+  --color-border: oklch(0.92 0.02 255);
+  --color-input: oklch(0.92 0.02 255);
+
+  /* Brand blues */
+  --color-primary: oklch(0.55 0.12 240);
+  --color-primary-foreground: oklch(0.98 0 0);
+  --color-accent: oklch(0.6 0.12 235);
+  --color-secondary: oklch(0.7 0.04 255);
+}
+
+@media (prefers-color-scheme: dark) {
+  @theme inline {
+    --color-background: #0f172a;
+    --color-foreground: #f8fafc;
+
+    --color-muted: #1e293b;
+    --color-muted-foreground: #94a3b8;
+
+    --color-card: #1e293b;
+    --color-card-foreground: #f8fafc;
+
+    --color-border: #334155;
+    --color-input: #334155;
+    --color-primary: oklch(0.75 0.15 240);
+    --color-primary-foreground: #0b1220;
+    --color-accent: oklch(0.8 0.14 235);
+    --color-secondary: #334155;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  h1, h2, h3 {
+    @apply tracking-tight text-foreground;
+  }
+  h1 { @apply text-4xl sm:text-5xl font-bold; }
+  h2 { @apply text-3xl sm:text-4xl font-semibold; }
+  h3 { @apply text-2xl font-semibold; }
+
+  .container {
+    @apply max-w-6xl;
+  }
+}
